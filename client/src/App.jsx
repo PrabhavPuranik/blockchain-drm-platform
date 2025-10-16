@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Header from './components/Header';
 import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
+import ContentDetailPage from './pages/ContentDetailPage';
 
 function App() {
   const [account, setAccount] = useState(null);
@@ -51,15 +52,16 @@ function App() {
   return (
     <Router>
       <div className="App">
-        {/* The Header is always visible and receives account info and the connect function */}
         <Header account={account} connectWallet={connectWallet} />
-
         <main>
-          {/* The Routes component will only render the Route that matches the current URL */}
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/upload" element={<UploadPage />} />
-            {/* We will add more routes for content details later */}
+            {/* Add the dynamic route. The ':id' is a URL parameter. */}
+            <Route
+              path="/content/:id"
+              element={<ContentDetailPage account={account} />}
+            />
           </Routes>
         </main>
       </div>

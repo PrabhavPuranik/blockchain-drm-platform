@@ -1,0 +1,50 @@
+.detail-container {
+  display: flex;
+  max-width: 1000px;
+  margin: 3rem auto;
+  gap: 2rem;
+  padding: 2rem;
+  background-color: var(--secondary-color);
+  border: 1px solid var(--border-color);
+}
+
+.detail-image {
+  flex: 1;
+  max-width: 500px;
+  object-fit: cover;
+}
+
+.detail-info {
+  flex: 1;
+}
+
+.detail-info h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.detail-info p {
+  margin-bottom: 0.75rem;
+  color: #ccc;
+  word-wrap: break-word;
+}
+
+.price-tag {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--accent-color);
+  margin: 2rem 0;
+}
+
+.action-box .buy-button,
+.action-box .owned-button {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.2rem;
+}
+
+.action-box .owned-button {
+  background-color: #333;
+  border-color: #444;
+  cursor: not-allowed;
+}

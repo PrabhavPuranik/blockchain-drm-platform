@@ -1,7 +1,6 @@
 import React from 'react';
+import { Link } from 'react-router-dom'; // Import Link
 import './ContentCard.css';
-
-// Import the local placeholder image from the assets folder
 import placeholderImage from '../assets/placeholder.png';
 
 const ContentCard = ({ content }) => {
@@ -12,7 +11,6 @@ const ContentCard = ({ content }) => {
 
   return (
     <div className="content-card">
-      {/* Use the imported local image variable as the source */}
       <img src={placeholderImage} alt={content.title} className="card-thumbnail" />
       <div className="card-body">
         <h3 className="card-title">{content.title}</h3>
@@ -21,7 +19,10 @@ const ContentCard = ({ content }) => {
         </p>
         <div className="card-footer">
           <span className="card-price">{content.price} ETH</span>
-          <button className="card-button primary-action">View / Buy</button>
+          {/* Wrap the button in a Link component */}
+          <Link to={`/content/${content.id}`}>
+            <button className="card-button primary-action">View / Buy</button>
+          </Link>
         </div>
       </div>
     </div>
