@@ -2,7 +2,6 @@
 export const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
 // The ABI (Application Binary Interface) of our contract
-// This is a JSON array that describes how to interact with the contract's functions.
 export const contractABI = [
   {
       "anonymous": false,
@@ -104,6 +103,19 @@ export const contractABI = [
           "internalType": "string",
           "name": "encryptedKeyCID",
           "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getContentCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",

@@ -96,4 +96,11 @@ contract ContentManager {
         // Emit the event to log the sale.
         emit ContentSold(_id, msg.sender, contentToBuy.price);
     }
+
+    // A public function to get the total number of registered content items.
+    // 'view' means this function only reads data from the blockchain and doesn't cost any gas to call.
+    // 'returns (uint256)' specifies what data type the function will send back.
+    function getContentCount() external view returns (uint256) {
+        return _contentIdCounter;
+    }
 }

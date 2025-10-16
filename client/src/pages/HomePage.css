@@ -1,0 +1,21 @@
+.homepage-container {
+  padding: 2rem;
+}
+
+.homepage-container h1 {
+  margin-bottom: 2rem;
+  font-size: 2.5rem;
+}
+
+.loading-container, .no-content-message {
+  text-align: center;
+  margin-top: 4rem;
+  font-size: 1.2rem;
+}
+
+.content-grid {
+  display: grid;
+  /* Create responsive columns: 1 for small screens, up to 4 for large screens */
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}

@@ -1,9 +1,12 @@
+// Add useNavigate to the import from react-router-dom
+import { useNavigate } from 'react-router-dom';
 import React, { useState } from 'react';
-import { ethers } from 'ethers'; // Import the ethers library
-import { contractAddress, contractABI } from '../contractInfo'; // Import our contract details
+import { ethers } from 'ethers';
+import { contractAddress, contractABI } from '../contractInfo';
 import './UploadPage.css';
 
 const UploadPage = () => {
+  // ... (keep all the existing useState variables)
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -11,13 +14,17 @@ const UploadPage = () => {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Initialize the navigate function
+  const navigate = useNavigate();
+
+  // ... (keep the handleFileChange function)
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
   };
 
-  // Main function to handle the entire upload and registration process
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // ... (keep the initial validation)
     if (!file || !title || !price) {
       setMessage('Please fill in all fields and select a file.');
       return;
@@ -26,68 +33,51 @@ const UploadPage = () => {
     setIsLoading(true);
     setMessage('Step 1/3: Uploading file to the server...');
 
-    // === STEP 1: UPLOAD FILE TO SERVER ===
-    const formData = new FormData();
-    formData.append('file', file);
-    // We no longer need to send other metadata here, but you could if your server needs it
-
     try {
+      // ... (keep the entire try block for uploading and blockchain transaction)
+      const formData = new FormData();
+      formData.append('file', file);
       const serverResponse = await fetch('http://localhost:8000/api/upload', {
         method: 'POST',
         body: formData,
       });
-
       const serverData = await serverResponse.json();
-      if (!serverResponse.ok) {
-        throw new Error(serverData.message || 'File upload failed');
-      }
+      if (!serverResponse.ok) throw new Error(serverData.message || 'File upload failed');
 
       setMessage('Step 2/3: File uploaded. Preparing blockchain transaction...');
-      console.log('File successfully uploaded:', serverData.filePath);
 
-      // === STEP 2: REGISTER CONTENT ON BLOCKCHAIN ===
-      // We need a "signer" to authorize the transaction from the user's wallet
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-
-      // Create an instance of our contract, connected to the user's signer
       const contentManager = new ethers.Contract(contractAddress, contractABI, signer);
-
-      // Convert the price from ETH (string) to Wei (BigInt)
       const priceInWei = ethers.parseEther(price);
-
-      // The 'encryptedKeyCID' is a placeholder for now. Later, this will be a link to the
-      // encrypted decryption key on a service like IPFS.
       const encryptedKeyPlaceholder = serverData.filePath;
 
       setMessage('Step 3/3: Please approve the transaction in MetaMask...');
-
-      // Call the `registerContent` function on our smart contract
       const transaction = await contentManager.registerContent(
         title,
         priceInWei,
-        encryptedKeyPlaceholder // Using the file path as a stand-in for now
+        encryptedKeyPlaceholder
       );
 
-      // Wait for the transaction to be mined and confirmed on the blockchain
       await transaction.wait();
 
-      setMessage('Success! Your content has been registered on the blockchain.');
-      console.log('Transaction successful:', transaction);
+      // === THE IMPROVEMENT ===
+      // On success, navigate the user to the homepage
+      navigate('/');
 
     } catch (error) {
       console.error('An error occurred:', error);
       setMessage(`Error: ${error.message}`);
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Make sure loading stops on error
     }
+    // We don't need the finally block anymore as we navigate away on success
   };
 
   return (
+    // ... (the return JSX remains exactly the same)
     <div className="upload-container">
       <h1>Upload New Content</h1>
       <form onSubmit={handleSubmit} className="upload-form">
-        {/* --- Form fields are unchanged --- */}
         <div className="form-group">
           <label htmlFor="title">Title</label>
           <input type="text" id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
