@@ -39,3 +39,24 @@ button:hover {
   background-color: var(--primary-color);
   color: var(--background-color);
 }
+
+:root {
+  /* ... (existing variables) ... */
+  --accent-color: #00aaff; /* A bright blue for attention */
+  --accent-hover-color: #0088cc;
+}
+
+/* ... (existing body and button styles) ... */
+
+/* A new style for primary action buttons */
+button.primary-action {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--background-color);
+  font-weight: bold;
+}
+
+button.primary-action:hover {
+  background-color: var(--accent-hover-color);
+  border-color: var(--accent-hover-color);
+}
