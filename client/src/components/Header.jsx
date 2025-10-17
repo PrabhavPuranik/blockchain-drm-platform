@@ -1,8 +1,8 @@
 import React from 'react';
-import { Link } from 'react-router-dom'; // For navigating between pages
-import './Header.css'; // We will create this file next
+import { Link } from 'react-router-dom';
+import './Header.css';
 
-const Header = ({ account, connectWallet }) => {
+const Header = ({ account, connectWallet, logout }) => {
   return (
     <header className="app-header">
       <div className="header-left">
@@ -18,6 +18,7 @@ const Header = ({ account, connectWallet }) => {
         ) : (
           <div className="user-info">
             {`${account.substring(0, 6)}...${account.substring(account.length - 4)}`}
+            <button onClick={logout} className="logout-button">Logout</button>
           </div>
         )}
       </div>

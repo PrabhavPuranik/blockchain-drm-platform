@@ -48,3 +48,52 @@
   border-color: #444;
   cursor: not-allowed;
 }
+
+.action-box .download-button {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.2rem;
+  text-decoration: none;
+  text-align: center;
+  display: block;
+  box-sizing: border-box;
+}
+
+/* ... (existing styles) ... */
+
+.detail-container {
+  display: flex;
+  max-width: 1000px;
+  margin: 3rem auto;
+  gap: 2rem;
+  padding: 2rem;
+  background-color: var(--secondary-color);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); /* Added subtle shadow */
+}
+
+/* New: Generic style for both image and video in detail page */
+.detail-media {
+  flex: 1;
+  max-width: 500px; /* Keep consistent width */
+  height: auto; /* Allow height to adjust naturally */
+  object-fit: contain; /* Ensure entire media is visible without cropping */
+  display: block;
+  background-color: #000; /* Black background for videos */
+  border-radius: 8px; /* Slightly rounded corners */
+}
+
+/* Style specifically for video player if needed, but detail-media should cover most */
+.video-player {
+  /* You can add specific video player styles here if needed, 
+     e.g., specific controls styling, max height, etc. */
+}
+
+.detail-info {
+  flex: 1;
+  display: flex; /* Use flexbox for better layout of info */
+  flex-direction: column;
+  justify-content: space-between; /* Pushes action box to bottom */
+}
+
+/* ... (rest of the styles, including .action-box .download-button) ... */

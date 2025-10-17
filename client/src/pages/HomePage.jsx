@@ -11,23 +11,18 @@ const HomePage = () => {
 
   useEffect(() => {
     const fetchContent = async () => {
-      setIsLoading(true); // Set loading to true at the start of the fetch
+      setIsLoading(true);
       try {
-        if (!window.ethereum) {
-          throw new Error("MetaMask is not installed.");
-        }
-
+        if (!window.ethereum) throw new Error("MetaMask is not installed.");
+        
         const provider = new ethers.BrowserProvider(window.ethereum);
         const contract = new ethers.Contract(contractAddress, contractABI, provider);
-
-        // === THE IMPROVEMENT ===
-        // 1. Call our new function to get the exact count of items.
         const contentCount = await contract.getContentCount();
         const count = Number(contentCount);
-
+        
         const fetchedContent = [];
-        // 2. Loop from the most recent item downwards.
-        for (let i = count; i >= 1; i--) {
+        // Loop from the first item up to the total count
+        for (let i = 1; i <= count; i++) {
           const content = await contract.contents(i);
           if (content.id !== 0n) {
             fetchedContent.push({
@@ -36,11 +31,16 @@ const HomePage = () => {
               owner: content.owner,
               price: ethers.formatEther(content.price),
               isForSale: content.isForSale,
+              thumbnailPath: content.encryptedKeyCID,
             });
           }
         }
+        
+        // Sort the array to show newest first, ensuring a consistent order every time
+        fetchedContent.sort((a, b) => b.id - a.id);
+        
+        setContentList(fetchedContent);
 
-        setContentList(fetchedContent); // The list is already reversed now
       } catch (error) {
         console.error("Failed to fetch content:", error);
       } finally {
