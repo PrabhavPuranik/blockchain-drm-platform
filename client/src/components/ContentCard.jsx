@@ -1,9 +1,8 @@
-// client/src/components/ContentCard.jsx
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import './ContentCard.css';
-import placeholderImage from '../assets/placeholder.png'; // Still used for non-video/non-image fallback
+import placeholderImage from '../assets/placeholder.png';
+import VideoPreview from './VideoPreview'; // Import our new limited preview component
 
 const ContentCard = ({ content }) => {
   const shortenAddress = (address) => {
@@ -12,7 +11,7 @@ const ContentCard = ({ content }) => {
   };
 
   let mediaElement = null;
-  const filePath = content.thumbnailPath; // This contains "/uploads/filename.ext"
+  const filePath = content.thumbnailPath;
 
   if (filePath) {
     const fullMediaUrl = `http://localhost:8000${filePath}`;
@@ -21,37 +20,22 @@ const ContentCard = ({ content }) => {
     const videoExtensions = ['mp4', 'webm', 'mov'];
 
     if (imageExtensions.includes(extension)) {
+      // For images, render a standard image tag
       mediaElement = <img src={fullMediaUrl} alt={content.title} className="card-thumbnail" />;
     } else if (videoExtensions.includes(extension)) {
-      // --- NEW: Render a <video> element for video previews ---
-      mediaElement = (
-        <div className="video-thumbnail-container">
-          <video
-            src={fullMediaUrl}
-            className="card-thumbnail video-preview"
-            autoPlay
-            muted
-            loop
-            playsInline // Important for mobile devices to play inline
-            preload="metadata" // Load metadata to show first frame quickly
-          />
-          <div className="play-icon-overlay">
-            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="rgba(255,255,255,0.8)"><path d="M8 5v14l11-7z"></path></svg>
-          </div>
-        </div>
-      );
+      // For videos, render our smart VideoPreview component
+      mediaElement = <VideoPreview src={fullMediaUrl} />;
     } else {
-      // Fallback for unsupported types
+      // Fallback for other file types
       mediaElement = <img src={placeholderImage} alt={content.title} className="card-thumbnail" />;
     }
   } else {
-    // Fallback if no file path exists
+    // Fallback if there is no file path
     mediaElement = <img src={placeholderImage} alt={content.title} className="card-thumbnail" />;
   }
 
   return (
     <div className="content-card">
-      {/* --- CHANGE: Directly render the determined mediaElement --- */}
       <div className="card-thumbnail-wrapper">
         {mediaElement}
       </div>

@@ -1,10 +1,8 @@
-// client/src/pages/ContentDetailPage.jsx
-
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom'; // No need for Link here anymore, so removed
+import { useParams } from 'react-router-dom';
 import { ethers } from 'ethers';
 import { contractAddress, contractABI } from '../contractInfo';
-import placeholderImage from '../assets/placeholder.png';
+import VideoPreview from '../components/VideoPreview'; // Import the new preview component
 import './ContentDetailPage.css';
 
 const ContentDetailPage = ({ account }) => {
@@ -13,12 +11,14 @@ const ContentDetailPage = ({ account }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [message, setMessage] = useState('');
-  
-  // --- NEW: State to hold the specific media component (img or video) ---
-  const [mediaComponent, setMediaComponent] = useState(null);
 
   useEffect(() => {
     const fetchContentDetails = async () => {
+      // Reset states for new content load
+      setIsLoading(true);
+      setContent(null);
+      setIsOwner(false);
+
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const contract = new ethers.Contract(contractAddress, contractABI, provider);
@@ -33,44 +33,18 @@ const ContentDetailPage = ({ account }) => {
           owner: item.owner,
           price: item.price,
           isForSale: item.isForSale,
-          filePath: item.encryptedKeyCID, // Contains /uploads/filename.ext
+          filePath: item.encryptedKeyCID,
         };
         setContent(fetchedContent);
 
-        const fullMediaUrl = `http://localhost:8000${fetchedContent.filePath}`;
-        const extension = fetchedContent.filePath.split('.').pop().toLowerCase();
-        const imageExtensions = ['png', 'jpg', 'jpeg', 'gif'];
-        const videoExtensions = ['mp4', 'webm', 'mov'];
-
-        // --- NEW: Dynamically set the media component for the detail page ---
-        if (imageExtensions.includes(extension)) {
-          setMediaComponent(<img src={fullMediaUrl} alt={fetchedContent.title} className="detail-media" />);
-        } else if (videoExtensions.includes(extension)) {
-          setMediaComponent(
-            <video 
-              src={fullMediaUrl} 
-              alt={fetchedContent.title} 
-              className="detail-media video-player" 
-              controls={isOwner} // Only show controls if user is the owner
-              autoPlay={false} // Don't autoplay on load
-              muted={false}
-              loop={false}
-              preload="metadata"
-            />
-          );
-        } else {
-          setMediaComponent(<img src={placeholderImage} alt="Placeholder" className="detail-media" />);
-        }
-
+        // Determine ownership based on the currently connected account
         if (account && item.owner.toLowerCase() === account.toLowerCase()) {
           setIsOwner(true);
-        } else {
-          setIsOwner(false);
         }
+
       } catch (error) {
         console.error("Failed to fetch content details:", error);
         setMessage(error.message);
-        setMediaComponent(<img src={placeholderImage} alt="Placeholder" className="detail-media" />); // Show placeholder on error
       } finally {
         setIsLoading(false);
       }
@@ -79,7 +53,7 @@ const ContentDetailPage = ({ account }) => {
     if (id) {
       fetchContentDetails();
     }
-  }, [id, account, isOwner]); // Added isOwner to dependencies to update video controls
+  }, [id, account]); // This effect re-runs when the content ID or the user's account changes
 
   const handlePurchase = async () => {
     if (!content) return;
@@ -98,23 +72,10 @@ const ContentDetailPage = ({ account }) => {
       await transaction.wait();
 
       setMessage('Purchase successful! You are now the owner.');
-      setIsOwner(true); // Update UI to reflect ownership
-      // --- NEW: Re-evaluate media component to show video controls if it's a video
-      if (mediaComponent && mediaComponent.type === 'video') {
-         setMediaComponent(
-            <video 
-              src={`http://localhost:8000${content.filePath}`} 
-              alt={content.title} 
-              className="detail-media video-player" 
-              controls={true} // Now show controls
-              autoPlay={false} 
-              muted={false}
-              loop={false}
-              preload="metadata"
-            />
-         );
-      }
-    } catch (error) {
+      setIsOwner(true); // This state change will trigger a re-render to show the full player
+
+    } catch (error)
+    {
       console.error("Purchase failed:", error);
       setMessage(`Purchase failed. Reason: ${error.reason || error.message}`);
     } finally {
@@ -122,7 +83,28 @@ const ContentDetailPage = ({ account }) => {
     }
   };
 
-  if (isLoading && !content) {
+  // Helper function to render the correct media element
+  const renderMedia = () => {
+    if (!content) return null;
+
+    const fullMediaUrl = `http://localhost:8000${content.filePath}`;
+    const extension = content.filePath.split('.').pop().toLowerCase();
+    const isVideo = ['mp4', 'webm', 'mov'].includes(extension);
+
+    if (isVideo) {
+      // If it's a video, show the full player for the owner, otherwise the preview
+      return isOwner ? (
+        <video src={fullMediaUrl} className="detail-media" controls />
+      ) : (
+        <VideoPreview src={fullMediaUrl} />
+      );
+    } else {
+      // For images, always show the full image
+      return <img src={fullMediaUrl} alt={content.title} className="detail-media" />;
+    }
+  };
+
+  if (isLoading) {
     return <div className="loading-container">Loading content details...</div>;
   }
   
@@ -132,8 +114,9 @@ const ContentDetailPage = ({ account }) => {
 
   return (
     <div className="detail-container">
-      {/* --- CHANGE: Render the mediaComponent here --- */}
-      {mediaComponent}
+      <div className="media-container-detail">
+        {renderMedia()}
+      </div>
       <div className="detail-info">
         <h1>{content.title}</h1>
         <p><strong>Creator:</strong> {content.creator}</p>
