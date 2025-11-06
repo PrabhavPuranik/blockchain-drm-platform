@@ -1,21 +1,128 @@
+/* ===== HOMEPAGE MAIN CONTAINER ===== */
 .homepage-container {
   padding: 2rem;
+  background-color: #0a0a0a;
+  min-height: 100vh;
+  color: #fff;
+  text-align: center;
 }
 
 .homepage-container h1 {
   margin-bottom: 2rem;
-  font-size: 2.5rem;
+  font-size: 2.2rem;
+  font-weight: 600;
 }
 
-.loading-container, .no-content-message {
+/* ===== LOADING & EMPTY STATES ===== */
+.loading-container,
+.no-content-message {
   text-align: center;
   margin-top: 4rem;
   font-size: 1.2rem;
+  color: #ccc;
 }
 
+/* ===== GRID LAYOUT ===== */
 .content-grid {
   display: grid;
-  /* Create responsive columns: 1 for small screens, up to 4 for large screens */
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
+  justify-items: center;
+}
+
+/* ===== CONTENT CARD ===== */
+.content-card {
+  background-color: #1b1b1b;
+  border-radius: 14px;
+  overflow: hidden;
+  width: 100%;
+  max-width: 320px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.content-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* ===== MEDIA PREVIEW (VIDEO/IMAGE) ===== */
+.media-preview {
+  position: relative;
+  background-color: #000;
+  height: 200px;
+  overflow: hidden;
+}
+
+.thumbnail-video,
+.thumbnail-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ===== DRM BADGE ===== */
+.drm-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(255, 204, 0, 0.9);
+  color: #000;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ===== CONTENT INFO ===== */
+.content-info {
+  padding: 1rem;
+  text-align: left;
+}
+
+.content-info h2 {
+  font-size: 1.2rem;
+  margin-bottom: 0.4rem;
+  color: #fff;
+}
+
+.price {
+  color: #00ffc8;
+  font-weight: bold;
+  margin-bottom: 0.6rem;
+  font-size: 0.95rem;
+}
+
+.view-details {
+  text-decoration: none;
+  color: #ffcc00;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: color 0.3s;
+}
+
+.view-details:hover {
+  color: #fff;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+  .homepage-container {
+    padding: 1rem;
+  }
+
+  .content-grid {
+    gap: 1rem;
+  }
+
+  .media-preview {
+    height: 180px;
+  }
+
+  .drm-badge {
+    font-size: 0.7rem;
+  }
 }

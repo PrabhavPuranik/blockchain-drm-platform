@@ -26,7 +26,7 @@ const UploadPage = () => {
     e.preventDefault();
 
     if (!file || !title || !price) {
-      setMessage('Please fill in all fields and select a file.');
+      setMessage('⚠️ Please fill in all fields and select a file.');
       return;
     }
 
@@ -34,7 +34,7 @@ const UploadPage = () => {
     setMessage('Step 1/3: Uploading file and generating hash...');
 
     try {
-      // Step 1: Upload file to the server
+      // Step 1: Upload file to the server and generate hash
       const formData = new FormData();
       formData.append('file', file);
 
@@ -44,45 +44,48 @@ const UploadPage = () => {
       });
 
       const serverData = await serverResponse.json();
-      if (!serverResponse.ok) throw new Error(serverData.message || 'File upload failed');
+      if (!serverResponse.ok) throw new Error(serverData.message || 'File upload failed.');
 
       const { filePath, fileHash } = serverData;
-      const fileHashBytes32 = '0x' + fileHash; // Convert hex string to bytes32
+      const fileHashBytes32 = '0x' + fileHash; // Convert to bytes32
 
-      setMessage('Step 2/3: Preparing blockchain transaction...');
+      setMessage('Step 2/3: Verifying uniqueness and preparing blockchain transaction...');
 
       // Step 2: Connect to Ethereum
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contentManager = new ethers.Contract(contractAddress, contractABI, signer);
-
       const priceInWei = ethers.parseEther(price);
 
-      // Optional: Check if hash already exists before transaction
+      // Check duplicate before sending tx
       const alreadyExists = await contentManager.hashExists(fileHashBytes32);
       if (alreadyExists) {
         setIsLoading(false);
-        setMessage('Duplicate detected ❌ — this file already exists on the blockchain.');
+        setMessage('❌ Duplicate detected — this file already exists on the blockchain.');
         return;
       }
 
-      setMessage('Step 3/3: Please approve the transaction in MetaMask...');
+      // Step 3: Register content on blockchain
+      setMessage('Step 3/3: Please confirm the transaction in MetaMask...');
 
-      // Step 3: Call smart contract
-      const transaction = await contentManager.registerContent(
+      const tx = await contentManager.registerContent(
         title,
         priceInWei,
         filePath,
         fileHashBytes32
       );
 
-      await transaction.wait();
+      await tx.wait();
 
-      setMessage('✅ Content successfully registered on blockchain!');
+      setMessage('✅ Content successfully registered on the blockchain!');
+      // 🟢 Tell browser to refresh data on homepage after navigation
+    sessionStorage.setItem('drm_refresh', 'true');
+
       setTimeout(() => navigate('/'), 1500);
     } catch (error) {
-      console.error('An error occurred:', error);
+      console.error('❌ Upload or blockchain error:', error);
       setMessage(`Error: ${error.message}`);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -90,6 +93,7 @@ const UploadPage = () => {
   return (
     <div className="upload-container">
       <h1>Upload New Content</h1>
+
       <form onSubmit={handleSubmit} className="upload-form">
         <div className="form-group">
           <label htmlFor="title">Title</label>
@@ -108,6 +112,7 @@ const UploadPage = () => {
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            placeholder="Optional short description..."
           />
         </div>
 

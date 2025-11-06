@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { ethers } from 'ethers';
 import { contractAddress, contractABI } from '../contractInfo';
-import VideoPreview from '../components/VideoPreview'; // Import the new preview component
+
+// Import watermark components
+import WatermarkedImage from '../components/WatermarkedImage';
+import WatermarkedVideo from '../components/WatermarkedVideo';
+
 import './ContentDetailPage.css';
 
 const ContentDetailPage = ({ account }) => {
@@ -12,19 +16,35 @@ const ContentDetailPage = ({ account }) => {
   const [isOwner, setIsOwner] = useState(false);
   const [message, setMessage] = useState('');
 
+  // 🟢 Function to log access (for non-owners)
+  const logViewAccess = async () => {
+    try {
+      await fetch('http://localhost:8000/api/log-view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentId: id,
+          viewerAddress: account,
+        }),
+      });
+    } catch (err) {
+      console.warn('Failed to log view:', err);
+    }
+  };
+
   useEffect(() => {
     const fetchContentDetails = async () => {
-      // Reset states for new content load
       setIsLoading(true);
       setContent(null);
       setIsOwner(false);
+      setMessage('');
 
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const contract = new ethers.Contract(contractAddress, contractABI, provider);
         const item = await contract.contents(id);
 
-        if (item.id === 0n) throw new Error("Content not found.");
+        if (item.id === 0n) throw new Error('Content not found.');
 
         const fetchedContent = {
           id: Number(item.id),
@@ -37,24 +57,25 @@ const ContentDetailPage = ({ account }) => {
         };
         setContent(fetchedContent);
 
-        // Determine ownership based on the currently connected account
+        // Determine ownership and optionally log access
         if (account && item.owner.toLowerCase() === account.toLowerCase()) {
           setIsOwner(true);
+        } else {
+          logViewAccess();
         }
 
       } catch (error) {
-        console.error("Failed to fetch content details:", error);
+        console.error('Failed to fetch content details:', error);
         setMessage(error.message);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (id) {
-      fetchContentDetails();
-    }
-  }, [id, account]); // This effect re-runs when the content ID or the user's account changes
+    if (id) fetchContentDetails();
+  }, [id, account]);
 
+  // 🟢 Purchase handler
   const handlePurchase = async () => {
     if (!content) return;
     setIsLoading(true);
@@ -66,57 +87,73 @@ const ContentDetailPage = ({ account }) => {
       const contract = new ethers.Contract(contractAddress, contractABI, signer);
 
       const transaction = await contract.purchaseContent(id, {
-        value: content.price
+        value: content.price,
       });
 
       await transaction.wait();
 
-      setMessage('Purchase successful! You are now the owner.');
-      setIsOwner(true); // This state change will trigger a re-render to show the full player
-
-    } catch (error)
-    {
-      console.error("Purchase failed:", error);
-      setMessage(`Purchase failed. Reason: ${error.reason || error.message}`);
+      setMessage('✅ Purchase successful! You are now the owner.');
+      setIsOwner(true);
+    } catch (error) {
+      console.error('Purchase failed:', error);
+      setMessage(`Purchase failed: ${error.reason || error.message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Helper function to render the correct media element
+  // 🟢 Choose how to render media (image / video)
   const renderMedia = () => {
     if (!content) return null;
 
-    const fullMediaUrl = `http://localhost:8000${content.filePath}`;
+    // Decide which URL to use (stream for videos)
     const extension = content.filePath.split('.').pop().toLowerCase();
+    const fileName = content.filePath.split('/').pop();
     const isVideo = ['mp4', 'webm', 'mov'].includes(extension);
+    const isImage = ['png', 'jpg', 'jpeg', 'gif'].includes(extension);
+
+    const fullMediaUrl = isVideo
+      ? `http://localhost:8000/stream/${fileName}`
+      : `http://localhost:8000${content.filePath}`;
 
     if (isVideo) {
-      // If it's a video, show the full player for the owner, otherwise the preview
       return isOwner ? (
         <video src={fullMediaUrl} className="detail-media" controls />
       ) : (
-        <VideoPreview src={fullMediaUrl} />
+        <WatermarkedVideo src={fullMediaUrl} watermarkText={account || 'UnknownUser'} />
+      );
+    } else if (isImage) {
+      return isOwner ? (
+        <img src={fullMediaUrl} alt={content.title} className="detail-media" />
+      ) : (
+        <WatermarkedImage src={fullMediaUrl} watermarkText={account || 'UnknownUser'} />
       );
     } else {
-      // For images, always show the full image
-      return <img src={fullMediaUrl} alt={content.title} className="detail-media" />;
+      return <p>Unsupported media type.</p>;
     }
   };
 
+  // 🟢 Loading / Error states
   if (isLoading) {
     return <div className="loading-container">Loading content details...</div>;
   }
-  
+
   if (!content) {
-    return <div className="error-container">Error: {message || "Content could not be loaded."}</div>;
+    return <div className="error-container">Error: {message || 'Content could not be loaded.'}</div>;
   }
 
+  // 🟢 Main render
   return (
     <div className="detail-container">
       <div className="media-container-detail">
         {renderMedia()}
+        {!isOwner && (
+          <p className="watermark-note">
+            🔒 This content is protected by a personalized watermark linked to your wallet address.
+          </p>
+        )}
       </div>
+
       <div className="detail-info">
         <h1>{content.title}</h1>
         <p><strong>Creator:</strong> {content.creator}</p>
@@ -125,9 +162,9 @@ const ContentDetailPage = ({ account }) => {
 
         <div className="action-box">
           {isOwner ? (
-            <a 
-              href={`http://localhost:8000${content.filePath}`} 
-              download 
+            <a
+              href={`http://localhost:8000${content.filePath}`}
+              download
               className="primary-action download-button"
             >
               Download File
@@ -142,6 +179,7 @@ const ContentDetailPage = ({ account }) => {
             </button>
           )}
         </div>
+
         {message && <p className="feedback-message">{message}</p>}
       </div>
     </div>

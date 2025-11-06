@@ -3,8 +3,8 @@ const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");             // 🟢 NEW: to read the uploaded file
-const crypto = require("crypto");     // 🟢 NEW: to compute file hash
+const fs = require("fs");
+const crypto = require("crypto");
 
 // 2. Initialize the Express application
 const app = express();
@@ -27,35 +27,30 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// 5. Define API Endpoints (Routes)
+// 5. API Endpoints
 
 // Health check
 app.get("/", (req, res) => {
   res.json({ message: "Server is up and running!" });
 });
 
-// 🟢 Updated upload route with hash computation
+// 🟢 Upload route — computes file hash for blockchain
 app.post("/api/upload", upload.single("file"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "No file uploaded." });
-  }
+  if (!req.file) return res.status(400).json({ message: "No file uploaded." });
 
   try {
-    // --- Compute SHA-256 hash of uploaded file ---
     const filePath = path.join(__dirname, "uploads", req.file.filename);
     const fileBuffer = fs.readFileSync(filePath);
     const fileHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
-    // --- End hash computation ---
 
     console.log("✅ File uploaded:", req.file.filename);
     console.log("🔒 File hash:", fileHash);
 
-    // Send both file path and hash back to frontend
     res.json({
       message: "File uploaded successfully!",
       filePath: `/uploads/${req.file.filename}`,
       fileName: req.file.filename,
-      fileHash: fileHash, // 🟢 Send hash to frontend
+      fileHash: fileHash,
     });
   } catch (error) {
     console.error("❌ Upload error:", error);
@@ -63,7 +58,81 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
   }
 });
 
+// 🟢 NEW: Video streaming with HTTP Range support
+app.get("/stream/:filename", (req, res) => {
+  const filePath = path.join(__dirname, "uploads", req.params.filename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ message: "File not found." });
+  }
+
+  const stat = fs.statSync(filePath);
+  const fileSize = stat.size;
+  const range = req.headers.range;
+
+  // If client requests specific byte range (e.g., for seeking)
+  if (range) {
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+    if (start >= fileSize) {
+      res.status(416).send("Requested range not satisfiable");
+      return;
+    }
+
+    const chunkSize = end - start + 1;
+    const file = fs.createReadStream(filePath, { start, end });
+    const mimeType = getMimeType(filePath);
+
+    const headers = {
+      "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+      "Accept-Ranges": "bytes",
+      "Content-Length": chunkSize,
+      "Content-Type": mimeType,
+    };
+    res.writeHead(206, headers);
+    file.pipe(res);
+  } else {
+    // Serve full file
+    const mimeType = getMimeType(filePath);
+    const headers = {
+      "Content-Length": fileSize,
+      "Content-Type": mimeType,
+    };
+    res.writeHead(200, headers);
+    fs.createReadStream(filePath).pipe(res);
+  }
+});
+
+// Helper: Detect MIME type by extension
+function getMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes = {
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
+    ".mov": "video/quicktime",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+  };
+  return mimeTypes[ext] || "application/octet-stream";
+}
+
+// 🟢 Optional: Log every access attempt (for watermark tracking)
+app.post("/api/log-view", (req, res) => {
+  const { contentId, viewerAddress } = req.body;
+  const timestamp = new Date().toISOString();
+
+  const logEntry = `[${timestamp}] Viewer: ${viewerAddress} viewed content ID: ${contentId}\n`;
+  fs.appendFileSync("access-log.txt", logEntry);
+
+  console.log("📜 View logged:", logEntry.trim());
+  res.json({ success: true });
+});
+
 // 6. Start the server
 app.listen(PORT, () => {
-  console.log(`🚀 Server is listening on http://localhost:${PORT}`);
+  console.log(`🚀 Server running at: http://localhost:${PORT}`);
 });
