@@ -2,60 +2,65 @@
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
-const path = require("path"); // A Node.js core module for working with file paths
+const path = require("path");
+const fs = require("fs");             // 🟢 NEW: to read the uploaded file
+const crypto = require("crypto");     // 🟢 NEW: to compute file hash
 
 // 2. Initialize the Express application
 const app = express();
-const PORT = 8000; // We'll run our server on port 8000
+const PORT = 8000;
 
 // 3. Apply middleware
-app.use(cors()); // Enable Cross-Origin Resource Sharing
-app.use(express.json()); // Allow the server to parse JSON in request bodies
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve files from the 'uploads' directory statically
+app.use(cors());
+app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // 4. Configure Multer for file storage
 const storage = multer.diskStorage({
-  // Set the destination for uploaded files
   destination: function (req, file, cb) {
     cb(null, "uploads/");
   },
-  // Set the filename for uploaded files
   filename: function (req, file, cb) {
-    // Create a unique filename to avoid overwrites: timestamp + original name
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
   },
 });
-
-// Initialize multer with the storage configuration
 const upload = multer({ storage: storage });
 
 // 5. Define API Endpoints (Routes)
 
-// A simple "health check" route to confirm the server is running
+// Health check
 app.get("/", (req, res) => {
   res.json({ message: "Server is up and running!" });
 });
 
-// The main file upload route
-// The 'upload.single("file")' middleware processes a single file upload from a form field named "file"
+// 🟢 Updated upload route with hash computation
 app.post("/api/upload", upload.single("file"), (req, res) => {
-  // If the file upload is successful, multer adds a 'file' object to the request
   if (!req.file) {
     return res.status(400).json({ message: "No file uploaded." });
   }
 
-  // We can access file details via req.file
-  console.log("File uploaded successfully:", req.file);
+  try {
+    // --- Compute SHA-256 hash of uploaded file ---
+    const filePath = path.join(__dirname, "uploads", req.file.filename);
+    const fileBuffer = fs.readFileSync(filePath);
+    const fileHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+    // --- End hash computation ---
 
-  // For the frontend, we'll send back the path to the uploaded file
-  // so it can be referenced later.
-  const filePath = `/uploads/${req.file.filename}`;
-  res.json({
-    message: "File uploaded successfully!",
-    filePath: filePath,
-    fileName: req.file.filename
-  });
+    console.log("✅ File uploaded:", req.file.filename);
+    console.log("🔒 File hash:", fileHash);
+
+    // Send both file path and hash back to frontend
+    res.json({
+      message: "File uploaded successfully!",
+      filePath: `/uploads/${req.file.filename}`,
+      fileName: req.file.filename,
+      fileHash: fileHash, // 🟢 Send hash to frontend
+    });
+  } catch (error) {
+    console.error("❌ Upload error:", error);
+    res.status(500).json({ message: "Error computing file hash." });
+  }
 });
 
 // 6. Start the server
