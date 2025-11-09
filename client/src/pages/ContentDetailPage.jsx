@@ -1,187 +1,203 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { ethers } from 'ethers';
-import { contractAddress, contractABI } from '../contractInfo';
-
-// Import watermark components
-import WatermarkedImage from '../components/WatermarkedImage';
-import WatermarkedVideo from '../components/WatermarkedVideo';
-
-import './ContentDetailPage.css';
+import React, { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { ethers } from "ethers";
+import { contractAddress, contractABI } from "../contractInfo";
+import WatermarkedVideo from "../components/WatermarkedVideo";
+import WatermarkedImage from "../components/WatermarkedImage";
+import "./ContentDetailPage.css";
 
 const ContentDetailPage = ({ account }) => {
   const { id } = useParams();
   const [content, setContent] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isOwner, setIsOwner] = useState(false);
-  const [message, setMessage] = useState('');
+  const [hasAccess, setHasAccess] = useState(false);
+  const [isCreator, setIsCreator] = useState(false);
+  const [remainingTime, setRemainingTime] = useState(0);
+  const [isTimed, setIsTimed] = useState(false);
+  const [message, setMessage] = useState("");
 
-  // 🟢 Function to log access (for non-owners)
-  const logViewAccess = async () => {
-    try {
-      await fetch('http://localhost:8000/api/log-view', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contentId: id,
-          viewerAddress: account,
-        }),
-      });
-    } catch (err) {
-      console.warn('Failed to log view:', err);
-    }
-  };
-
+  // 🟢 Fetch content + user access info
   useEffect(() => {
-    const fetchContentDetails = async () => {
-      setIsLoading(true);
-      setContent(null);
-      setIsOwner(false);
-      setMessage('');
+    const fetchDetails = async () => {
+      if (!account) return;
 
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const contract = new ethers.Contract(contractAddress, contractABI, provider);
         const item = await contract.contents(id);
 
-        if (item.id === 0n) throw new Error('Content not found.');
+        if (item.id === 0n) throw new Error("Content not found.");
 
-        const fetchedContent = {
+        const fetched = {
           id: Number(item.id),
           title: item.title,
           creator: item.creator,
           owner: item.owner,
           price: item.price,
-          isForSale: item.isForSale,
           filePath: item.encryptedKeyCID,
+          accessDuration: Number(item.accessDuration)
         };
-        setContent(fetchedContent);
 
-        // Determine ownership and optionally log access
-        if (account && item.owner.toLowerCase() === account.toLowerCase()) {
-          setIsOwner(true);
-        } else {
-          logViewAccess();
+        setContent(fetched);
+        setIsCreator(item.creator.toLowerCase() === account.toLowerCase());
+        setIsTimed(fetched.accessDuration > 0);
+
+        // Check user access from blockchain
+        const access = await contract.hasAccess(id, account);
+        setHasAccess(access);
+
+        // Get remaining time if applicable
+        if (fetched.accessDuration > 0) {
+          const timeLeft = await contract.getRemainingTime(id, account);
+          setRemainingTime(Number(timeLeft));
         }
-
-      } catch (error) {
-        console.error('Failed to fetch content details:', error);
-        setMessage(error.message);
-      } finally {
-        setIsLoading(false);
+      } catch (err) {
+        console.error("Error fetching details:", err);
+        setMessage(err.message);
       }
     };
 
-    if (id) fetchContentDetails();
+    fetchDetails();
   }, [id, account]);
 
-  // 🟢 Purchase handler
+  // 🕒 Timer countdown for frontend display
+  useEffect(() => {
+    if (!hasAccess || remainingTime <= 0) return;
+
+    const timer = setInterval(() => {
+      setRemainingTime((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setHasAccess(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [hasAccess, remainingTime]);
+
+  // 🕓 Format seconds → H:M:S
+  const formatTime = (seconds) => {
+    if (seconds <= 0) return "Expired";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h}h ${m}m ${s}s`;
+  };
+
+  // 💰 Purchase or renew access
   const handlePurchase = async () => {
     if (!content) return;
-    setIsLoading(true);
-    setMessage('Processing purchase... Please approve in MetaMask.');
+    setMessage("Processing purchase... Please approve in MetaMask.");
 
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(contractAddress, contractABI, signer);
 
-      const transaction = await contract.purchaseContent(id, {
-        value: content.price,
-      });
+      const tx = await contract.purchaseContent(content.id, { value: content.price });
+      await tx.wait();
 
-      await transaction.wait();
+      const access = await contract.hasAccess(content.id, account);
+      const newTime = await contract.getRemainingTime(content.id, account);
 
-      setMessage('✅ Purchase successful! You are now the owner.');
-      setIsOwner(true);
+      setHasAccess(access);
+      setRemainingTime(Number(newTime));
+      setMessage("✅ Access granted successfully!");
     } catch (error) {
-      console.error('Purchase failed:', error);
-      setMessage(`Purchase failed: ${error.reason || error.message}`);
-    } finally {
-      setIsLoading(false);
+      console.error("Purchase failed:", error);
+      setMessage(`❌ Purchase failed: ${error.reason || error.message}`);
     }
   };
 
-  // 🟢 Choose how to render media (image / video)
+  // 🖼️ Render media (image/video with access control)
   const renderMedia = () => {
     if (!content) return null;
 
-    // Decide which URL to use (stream for videos)
-    const extension = content.filePath.split('.').pop().toLowerCase();
-    const fileName = content.filePath.split('/').pop();
-    const isVideo = ['mp4', 'webm', 'mov'].includes(extension);
-    const isImage = ['png', 'jpg', 'jpeg', 'gif'].includes(extension);
+    const fileName = content.filePath.split("/").pop();
+    const fullUrl = content.filePath.startsWith("/uploads")
+      ? `http://localhost:8000${content.filePath}`
+      : `http://localhost:8000/uploads/${fileName}`;
 
-    const fullMediaUrl = isVideo
-      ? `http://localhost:8000/stream/${fileName}`
-      : `http://localhost:8000${content.filePath}`;
+    const ext = fileName.split(".").pop().toLowerCase();
+    const isVideo = ["mp4", "webm", "mov"].includes(ext);
+    const isImage = ["png", "jpg", "jpeg", "gif"].includes(ext);
 
-    if (isVideo) {
-      return isOwner ? (
-        <video src={fullMediaUrl} className="detail-media" controls />
+    if (isCreator || hasAccess) {
+      return isVideo ? (
+        <video src={fullUrl} className="detail-media" controls />
       ) : (
-        <WatermarkedVideo src={fullMediaUrl} watermarkText={account || 'UnknownUser'} />
-      );
-    } else if (isImage) {
-      return isOwner ? (
-        <img src={fullMediaUrl} alt={content.title} className="detail-media" />
-      ) : (
-        <WatermarkedImage src={fullMediaUrl} watermarkText={account || 'UnknownUser'} />
+        <img src={fullUrl} alt={content.title} className="detail-media" />
       );
     } else {
-      return <p>Unsupported media type.</p>;
+      return isVideo ? (
+        <WatermarkedVideo src={fullUrl} watermarkText={account || "UnauthorizedUser"} />
+      ) : (
+        <WatermarkedImage src={fullUrl} watermarkText={account || "UnauthorizedUser"} />
+      );
     }
   };
 
-  // 🟢 Loading / Error states
-  if (isLoading) {
-    return <div className="loading-container">Loading content details...</div>;
-  }
-
-  if (!content) {
-    return <div className="error-container">Error: {message || 'Content could not be loaded.'}</div>;
-  }
-
-  // 🟢 Main render
   return (
     <div className="detail-container">
-      <div className="media-container-detail">
-        {renderMedia()}
-        {!isOwner && (
-          <p className="watermark-note">
-            🔒 This content is protected by a personalized watermark linked to your wallet address.
-          </p>
-        )}
-      </div>
+      {content ? (
+        <>
+          <div className="media-container-detail">{renderMedia()}</div>
 
-      <div className="detail-info">
-        <h1>{content.title}</h1>
-        <p><strong>Creator:</strong> {content.creator}</p>
-        <p><strong>Owner:</strong> {content.owner}</p>
-        <div className="price-tag">{ethers.formatEther(content.price)} ETH</div>
+          <div className="detail-info">
+            <h1>{content.title}</h1>
+            <p>
+              <strong>Creator:</strong> {content.creator}
+            </p>
+            <p>
+              <strong>Owner:</strong>{" "}
+              {isTimed ? "Creator retains ownership (timed access)" : content.owner}
+            </p>
+            <div className="price-tag">{ethers.formatEther(content.price)} ETH</div>
 
-        <div className="action-box">
-          {isOwner ? (
-            <a
-              href={`http://localhost:8000${content.filePath}`}
-              download
-              className="primary-action download-button"
-            >
-              Download File
-            </a>
-          ) : (
-            <button
-              onClick={handlePurchase}
-              className="primary-action buy-button"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Processing...' : 'Buy Now'}
-            </button>
-          )}
+            {/* 🕒 Access / Timer */}
+            {isCreator ? (
+              <p className="timer-text owner-text">You are the creator of this content.</p>
+            ) : isTimed ? (
+              hasAccess ? (
+                <p className="timer-text">⏳ Access remaining: {formatTime(remainingTime)}</p>
+              ) : (
+                <p className="timer-text">🔒 Timed access expired or not active.</p>
+              )
+            ) : (
+              <p className="timer-text">💫 Permanent purchase model.</p>
+            )}
+
+            {/* 🛒 Purchase / Renew */}
+            <div className="action-box">
+              {isCreator ? (
+                <a
+                  href={`http://localhost:8000${content.filePath}`}
+                  download
+                  className="primary-action download-button"
+                >
+                  Download File
+                </a>
+              ) : (
+                <button
+                  onClick={handlePurchase}
+                  className="primary-action buy-button"
+                  disabled={hasAccess && (!isTimed || remainingTime > 0)}
+                >
+                  {hasAccess ? "Access Active" : "Buy / Renew Access"}
+                </button>
+              )}
+            </div>
+
+            {message && <p className="feedback-message">{message}</p>}
+          </div>
+        </>
+      ) : (
+        <div className="error-container">
+          <p>{message || "Error: Content could not be loaded."}</p>
         </div>
-
-        {message && <p className="feedback-message">{message}</p>}
-      </div>
+      )}
     </div>
   );
 };

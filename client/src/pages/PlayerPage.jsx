@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { ethers } from 'ethers';
 import { contractAddress, contractABI } from '../contractInfo';
 import './PlayerPage.css';
@@ -7,7 +8,7 @@ import './PlayerPage.css';
 const PlayerPage = ({ account }) => {
   const { id } = useParams();
   const [mediaUrl, setMediaUrl] = useState('');
-  const [mediaType, setMediaType] = useState(''); // 'image' or 'video'
+  const [mediaType, setMediaType] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -20,17 +21,13 @@ const PlayerPage = ({ account }) => {
       }
 
       try {
-        // First, we need to get the file path from the contract
         const provider = new ethers.BrowserProvider(window.ethereum);
         const contract = new ethers.Contract(contractAddress, contractABI, provider);
         const content = await contract.contents(id);
         const filePath = content.encryptedKeyCID;
 
-        if (!filePath) {
-          throw new Error("File path not found in contract.");
-        }
+        if (!filePath) throw new Error("File path not found in contract.");
 
-        // Determine if the file is an image or video based on its extension
         const extension = filePath.split('.').pop().toLowerCase();
         if (['png', 'jpg', 'jpeg', 'gif'].includes(extension)) {
           setMediaType('image');
@@ -40,10 +37,8 @@ const PlayerPage = ({ account }) => {
           throw new Error("Unsupported file type.");
         }
 
-        // Construct the secure URL to our backend's protected route
         const secureUrl = `http://localhost:8000/api/access/${id}?userAddress=${account}`;
         setMediaUrl(secureUrl);
-
       } catch (err) {
         console.error("Failed to get media:", err);
         setError(err.message);
@@ -55,33 +50,51 @@ const PlayerPage = ({ account }) => {
     getMedia();
   }, [id, account]);
 
-  // Prevent the default right-click context menu
-  const handleContextMenu = (e) => {
-    e.preventDefault();
-  };
+  const handleContextMenu = (e) => e.preventDefault();
 
-  if (isLoading) return <div className="loading-container">Verifying ownership...</div>;
-  if (error) return <div className="error-container">Error: {error}</div>;
+  if (isLoading)
+    return <div className="loading-container">🎥 Verifying ownership...</div>;
+
+  if (error)
+    return <div className="error-container">❌ {error}</div>;
 
   return (
-    <div className="player-container" onContextMenu={handleContextMenu}>
-      {mediaUrl && (
-        <div className="media-wrapper">
-          {mediaType === 'video' && (
-            <video src={mediaUrl} controls controlsList="nodownload" />
-          )}
-          {mediaType === 'image' && (
-            <img src={mediaUrl} alt="Purchased Content" />
-          )}
+    <motion.div
+      className="player-container"
+      onContextMenu={handleContextMenu}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.8 }}
+    >
+      <motion.div
+        className="media-wrapper"
+        initial={{ scale: 0.98 }}
+        animate={{ scale: 1 }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+      >
+        {mediaType === 'video' && (
+          <video
+            src={mediaUrl}
+            controls
+            controlsList="nodownload"
+            autoPlay
+            className="video-player"
+          />
+        )}
+        {mediaType === 'image' && (
+          <img src={mediaUrl} alt="Purchased Content" className="image-player" />
+        )}
 
-          {/* Dynamic Watermark Overlay */}
-          <div className="watermark">
-            <p>Owner: {account.substring(0, 10)}...</p>
-            <p>{new Date().toUTCString()}</p>
-          </div>
+        {/* Elegant Floating Watermark */}
+        <div className="watermark">
+          <p>Wallet: {account ? `${account.substring(0, 10)}...` : 'N/A'}</p>
+          <p>{new Date().toLocaleString()}</p>
         </div>
-      )}
-    </div>
+
+        {/* Subtle Neon Edge Glow */}
+        <div className="neon-frame"></div>
+      </motion.div>
+    </motion.div>
   );
 };
 

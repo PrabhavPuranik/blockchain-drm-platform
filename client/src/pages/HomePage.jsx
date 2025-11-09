@@ -1,38 +1,33 @@
+// client/src/pages/HomePage.jsx
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { ethers } from 'ethers';
 import { contractAddress, contractABI } from '../contractInfo';
-import ContentCard from '../components/ContentCard';
 import './HomePage.css';
 
 const HomePage = () => {
   const [contentList, setContentList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [reloadKey, setReloadKey] = useState(Date.now()); // 🟢 forces component refresh
+  const [reloadKey, setReloadKey] = useState(Date.now());
 
-  // 🟢 Listen for navigation back from UploadPage (window refocus)
+  // Refresh on focus (after upload)
   useEffect(() => {
     const handleFocus = () => setReloadKey(Date.now());
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
+  // Fetch content from contract
   useEffect(() => {
-    // 🟢 Check if UploadPage requested a homepage refresh
-    if (sessionStorage.getItem('drm_refresh')) {
-      sessionStorage.removeItem('drm_refresh');
-      setReloadKey(Date.now()); // Force immediate reload
-    }
-
     const fetchContent = async () => {
       setIsLoading(true);
       try {
         if (!window.ethereum) throw new Error('MetaMask is not installed.');
-
         const provider = new ethers.BrowserProvider(window.ethereum);
         const contract = new ethers.Contract(contractAddress, contractABI, provider);
         const contentCount = await contract.getContentCount();
-        const count = Number(contentCount);
 
+        const count = Number(contentCount);
         const fetchedContent = [];
 
         for (let i = 1; i <= count; i++) {
@@ -43,7 +38,6 @@ const HomePage = () => {
             const isVideo = ['mp4', 'webm', 'mov'].includes(extension);
             const isImage = ['png', 'jpg', 'jpeg', 'gif'].includes(extension);
 
-            // 🟢 Add cache-busting timestamp so browser shows fresh media
             const cacheBuster = `?t=${Date.now()}`;
             const mediaUrl = isVideo
               ? `http://localhost:8000/stream/${fileName}${cacheBuster}`
@@ -62,7 +56,6 @@ const HomePage = () => {
           }
         }
 
-        // Sort newest first
         fetchedContent.sort((a, b) => b.id - a.id);
         setContentList(fetchedContent);
       } catch (error) {
@@ -73,20 +66,43 @@ const HomePage = () => {
     };
 
     fetchContent();
-  }, [reloadKey]); // 🟢 Refetch whenever reloadKey changes
-
-  if (isLoading) {
-    return <div className="loading-container">Loading content from the blockchain...</div>;
-  }
+  }, [reloadKey]);
 
   return (
     <main className="homepage-container">
-      <h1>Discover DRM-Protected Content</h1>
+      <motion.h1
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+      >
+        Discover DRM-Protected Content
+      </motion.h1>
 
-      {contentList.length > 0 ? (
-        <div className="content-grid">
+      {isLoading ? (
+        <motion.div
+          className="loading-container"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          Loading content from the blockchain...
+        </motion.div>
+      ) : contentList.length > 0 ? (
+        <motion.div
+          className="content-grid"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
+          }}
+        >
           {contentList.map((content) => (
-            <div key={`${content.id}-${reloadKey}`} className="content-card">
+            <motion.div
+              key={`${content.id}-${reloadKey}`}
+              className="content-card"
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.97 }}
+            >
               <div className="media-preview">
                 {content.isVideo ? (
                   <video
@@ -116,9 +132,9 @@ const HomePage = () => {
                   View Details →
                 </a>
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       ) : (
         <p className="no-content-message">No content has been registered yet. Be the first!</p>
       )}

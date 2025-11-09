@@ -1,63 +1,50 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-// Import the Ownable contract from the OpenZeppelin library
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-// Update our contract to inherit from Ownable.
 contract ContentManager is Ownable {
-
-    // Struct to hold content details
     struct Content {
         uint256 id;
         string title;
         address payable creator;
-        address payable owner;
+        address payable owner; // permanent owner (creator by default)
         uint256 price;
         bool isForSale;
         string encryptedKeyCID;
+        uint256 accessDuration; // 0 = permanent ownership model
     }
 
-    // Mappings and counters
+    // Global content registry
     mapping(uint256 => Content) public contents;
+    mapping(bytes32 => bool) public hashExists;
+
+    // Per-user access expiry times (for timed content)
+    // contentId => user => expiry timestamp
+    mapping(uint256 => mapping(address => uint256)) public userAccessExpiry;
+
     uint256 private _contentIdCounter;
 
-    // --- NEW ---
-    // This mapping will store a true/false value for every file hash.
-    // We make it public so the frontend can check for duplicates.
-    mapping(bytes32 => bool) public hashExists;
-    // --- END NEW ---
+    event ContentRegistered(uint256 id, string title, address creator, uint256 price, uint256 duration);
+    event ContentPurchased(uint256 id, address buyer, uint256 price, uint256 expiresAt);
+    event OwnershipTransferredPermanent(uint256 id, address from, address to);
 
-    // Events
-    event ContentRegistered(uint256 id, string title, address creator, uint256 price);
-    event ContentSold(uint256 id, address newOwner, uint256 price);
-
-    // We add a constructor to set the initial owner when the contract is deployed.
     constructor() Ownable(msg.sender) {}
 
-    // --- UPDATED FUNCTION ---
+    // 🟢 Register content with optional timed access duration
     function registerContent(
-        string memory _title, 
-        uint256 _price, 
+        string memory _title,
+        uint256 _price,
         string memory _encryptedKeyCID,
-        bytes32 _fileHash // <-- NEW: Added the file hash as an argument
+        bytes32 _fileHash,
+        uint256 _accessDuration // 0 = permanent access
     ) external {
-        
-        // --- NEW: Check for duplicate hash ---
-        // This is the core of our new feature.
-        // It checks the 'hashExists' mapping. If the hash is already 'true', it stops.
-        require(!hashExists[_fileHash], "This content has already been uploaded.");
-        // --- END NEW ---
+        require(!hashExists[_fileHash], "Duplicate content detected");
 
         _contentIdCounter++;
         uint256 newId = _contentIdCounter;
-        
-        // --- NEW: Register the hash ---
-        // If the 'require' check passed, we now "burn" the hash by setting it to 'true'.
         hashExists[_fileHash] = true;
-        // --- END NEW ---
 
-        // Store the new content
         contents[newId] = Content({
             id: newId,
             title: _title,
@@ -65,35 +52,77 @@ contract ContentManager is Ownable {
             owner: payable(msg.sender),
             price: _price,
             isForSale: true,
-            encryptedKeyCID: _encryptedKeyCID
+            encryptedKeyCID: _encryptedKeyCID,
+            accessDuration: _accessDuration
         });
-        
-        // Emit an event
-        emit ContentRegistered(newId, _title, msg.sender, _price);
+
+        emit ContentRegistered(newId, _title, msg.sender, _price, _accessDuration);
     }
-    // --- END OF UPDATED FUNCTION ---
 
-
-    // --- NO CHANGES TO THE FUNCTIONS BELOW ---
-
+    // 🟢 Purchase or renew access
     function purchaseContent(uint256 _id) external payable {
-        Content storage contentToBuy = contents[_id];
-        require(contentToBuy.id != 0, "Content does not exist.");
-        require(contentToBuy.isForSale, "Content is not for sale.");
-        require(msg.value >= contentToBuy.price, "Insufficient Ether sent. Please send the exact price.");
-        require(msg.sender != contentToBuy.owner, "You already own this content.");
-        
-        address payable previousOwner = contentToBuy.owner;
-        contentToBuy.owner = payable(msg.sender);
-        contentToBuy.isForSale = false;
-        
-        // Send the payment to the previous owner
-        previousOwner.transfer(contentToBuy.price);
-        
-        emit ContentSold(_id, msg.sender, contentToBuy.price);
+        Content storage c = contents[_id];
+        require(c.id != 0, "Content does not exist");
+        require(c.isForSale, "Not for sale");
+        require(msg.value >= c.price, "Insufficient ETH");
+        require(msg.sender != c.creator, "Creator already owns this");
+
+        // Payment logic
+        c.creator.transfer(c.price);
+
+        if (c.accessDuration == 0) {
+            // 🔹 Permanent purchase → transfer ownership
+            c.owner = payable(msg.sender);
+            c.isForSale = false;
+            emit OwnershipTransferredPermanent(_id, c.creator, msg.sender);
+        } else {
+            // 🔹 Timed access purchase → assign or extend access
+            uint256 newExpiry;
+            if (block.timestamp < userAccessExpiry[_id][msg.sender]) {
+                // Extend existing access
+                newExpiry = userAccessExpiry[_id][msg.sender] + c.accessDuration;
+            } else {
+                // New access period
+                newExpiry = block.timestamp + c.accessDuration;
+            }
+            userAccessExpiry[_id][msg.sender] = newExpiry;
+            emit ContentPurchased(_id, msg.sender, c.price, newExpiry);
+        }
     }
 
+    // 🟢 Check access
+    function hasAccess(uint256 _id, address _user) public view returns (bool) {
+        Content storage c = contents[_id];
+        if (c.id == 0) return false;
+
+        // Creator always has access
+        if (_user == c.creator) return true;
+
+        // Permanent ownership model
+        if (c.accessDuration == 0) {
+            return (_user == c.owner);
+        }
+
+        // Timed access model
+        return block.timestamp < userAccessExpiry[_id][_user];
+    }
+
+    // 🟢 Get remaining access time for a user
+    function getRemainingTime(uint256 _id, address _user) public view returns (uint256) {
+        uint256 expiry = userAccessExpiry[_id][_user];
+        if (expiry > block.timestamp) return expiry - block.timestamp;
+        return 0;
+    }
+
+    // 🟢 Get total content count
     function getContentCount() external view returns (uint256) {
         return _contentIdCounter;
+    }
+
+    // 🟢 Admin: update price (optional management helper)
+    function updatePrice(uint256 _id, uint256 _newPrice) external {
+        Content storage c = contents[_id];
+        require(c.creator == msg.sender, "Only creator can update");
+        c.price = _newPrice;
     }
 }

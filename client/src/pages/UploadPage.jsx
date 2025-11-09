@@ -1,101 +1,105 @@
-// Import dependencies
-import { useNavigate } from 'react-router-dom';
+// client/src/pages/UploadPage.jsx
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
 import { contractAddress, contractABI } from '../contractInfo';
 import './UploadPage.css';
 
 const UploadPage = () => {
-  // State variables
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [file, setFile] = useState(null);
+  const [enableTimedAccess, setEnableTimedAccess] = useState(false);
+  const [hours, setHours] = useState('');
+  const [minutes, setMinutes] = useState('');
+  const [seconds, setSeconds] = useState('');
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
+  const handleFileChange = (e) => setFile(e.target.files[0]);
 
-  // Handle file selection
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
-
-  // Handle file upload + blockchain registration
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!file || !title || !price) {
-      setMessage('⚠️ Please fill in all fields and select a file.');
+      setMessage('⚠️ Please fill all fields and select a file.');
       return;
     }
 
+    let totalSeconds = 0;
+    if (enableTimedAccess) {
+      totalSeconds =
+        (Number(hours || 0) * 3600) +
+        (Number(minutes || 0) * 60) +
+        Number(seconds || 0);
+      if (totalSeconds < 10) {
+        setMessage('⚠️ Access time must be at least 10 seconds when enabled.');
+        return;
+      }
+    }
+
     setIsLoading(true);
-    setMessage('Step 1/3: Uploading file and generating hash...');
+    setMessage('📤 Step 1/3: Uploading file and generating hash...');
 
     try {
-      // Step 1: Upload file to the server and generate hash
       const formData = new FormData();
       formData.append('file', file);
-
-      const serverResponse = await fetch('http://localhost:8000/api/upload', {
+      const res = await fetch('http://localhost:8000/api/upload', {
         method: 'POST',
         body: formData,
       });
 
-      const serverData = await serverResponse.json();
-      if (!serverResponse.ok) throw new Error(serverData.message || 'File upload failed.');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'File upload failed.');
 
-      const { filePath, fileHash } = serverData;
-      const fileHashBytes32 = '0x' + fileHash; // Convert to bytes32
-
-      setMessage('Step 2/3: Verifying uniqueness and preparing blockchain transaction...');
-
-      // Step 2: Connect to Ethereum
+      const { filePath, fileHash } = data;
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-      const contentManager = new ethers.Contract(contractAddress, contractABI, signer);
+      const contract = new ethers.Contract(contractAddress, contractABI, signer);
       const priceInWei = ethers.parseEther(price);
 
-      // Check duplicate before sending tx
-      const alreadyExists = await contentManager.hashExists(fileHashBytes32);
-      if (alreadyExists) {
-        setIsLoading(false);
-        setMessage('❌ Duplicate detected — this file already exists on the blockchain.');
-        return;
-      }
+      setMessage('🔗 Step 2/3: Preparing blockchain transaction...');
 
-      // Step 3: Register content on blockchain
-      setMessage('Step 3/3: Please confirm the transaction in MetaMask...');
-
-      const tx = await contentManager.registerContent(
+      const tx = await contract.registerContent(
         title,
         priceInWei,
         filePath,
-        fileHashBytes32
+        '0x' + fileHash,
+        totalSeconds
       );
 
+      setMessage('⏳ Step 3/3: Waiting for transaction confirmation...');
       await tx.wait();
 
-      setMessage('✅ Content successfully registered on the blockchain!');
-      // 🟢 Tell browser to refresh data on homepage after navigation
-    sessionStorage.setItem('drm_refresh', 'true');
-
+      setMessage('✅ Content successfully registered on blockchain!');
+      sessionStorage.setItem('drm_refresh', 'true');
       setTimeout(() => navigate('/'), 1500);
-    } catch (error) {
-      console.error('❌ Upload or blockchain error:', error);
-      setMessage(`Error: ${error.message}`);
+    } catch (err) {
+      console.error(err);
+      setMessage(`❌ Error: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="upload-container">
-      <h1>Upload New Content</h1>
+    <motion.div
+      className="upload-container"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <h1 className="upload-title">Upload New Content</h1>
 
       <form onSubmit={handleSubmit} className="upload-form">
-        <div className="form-group">
+        {/* Title */}
+        <motion.div
+          className="form-group"
+          whileFocus={{ scale: 1.02 }}
+        >
           <label htmlFor="title">Title</label>
           <input
             type="text"
@@ -104,8 +108,9 @@ const UploadPage = () => {
             onChange={(e) => setTitle(e.target.value)}
             required
           />
-        </div>
+        </motion.div>
 
+        {/* Description */}
         <div className="form-group">
           <label htmlFor="description">Description</label>
           <textarea
@@ -116,6 +121,7 @@ const UploadPage = () => {
           />
         </div>
 
+        {/* Price */}
         <div className="form-group">
           <label htmlFor="price">Price (in ETH)</label>
           <input
@@ -128,18 +134,92 @@ const UploadPage = () => {
           />
         </div>
 
+        {/* Timed Access Toggle */}
+        <div className="form-group timed-toggle">
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={enableTimedAccess}
+              onChange={(e) => setEnableTimedAccess(e.target.checked)}
+            />
+            <span className="slider"></span>
+          </label>
+          <span>Enable Timed Access</span>
+        </div>
+
+        {/* Time Duration */}
+        {enableTimedAccess && (
+          <motion.div
+            className="form-group time-duration"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <label>Access Duration</label>
+            <div className="time-inputs">
+              <div>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={hours}
+                  onChange={(e) => setHours(e.target.value)}
+                />
+                <span>hours</span>
+              </div>
+              <div>
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  placeholder="0"
+                  value={minutes}
+                  onChange={(e) => setMinutes(e.target.value)}
+                />
+                <span>min</span>
+              </div>
+              <div>
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  placeholder="0"
+                  value={seconds}
+                  onChange={(e) => setSeconds(e.target.value)}
+                />
+                <span>sec</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* File Input */}
         <div className="form-group">
           <label htmlFor="file">Content File</label>
           <input type="file" id="file" onChange={handleFileChange} required />
         </div>
 
-        <button type="submit" className="primary-action" disabled={isLoading}>
+        {/* Submit */}
+        <motion.button
+          type="submit"
+          className="primary-action upload-btn"
+          disabled={isLoading}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.97 }}
+        >
           {isLoading ? 'Processing...' : 'Upload & Register'}
-        </button>
+        </motion.button>
       </form>
 
-      {message && <p className="feedback-message">{message}</p>}
-    </div>
+      {message && (
+        <motion.p
+          className="feedback-message"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          {message}
+        </motion.p>
+      )}
+    </motion.div>
   );
 };
 

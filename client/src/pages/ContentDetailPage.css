@@ -1,99 +1,202 @@
+/* === Layout Container === */
 .detail-container {
   display: flex;
-  max-width: 1000px;
+  flex-direction: row;
+  align-items: flex-start;
+  max-width: 1100px;
   margin: 3rem auto;
-  gap: 2rem;
-  padding: 2rem;
-  background-color: var(--secondary-color);
-  border: 1px solid var(--border-color);
+  gap: 2.5rem;
+  padding: 2rem 2.5rem;
+  background: linear-gradient(145deg, #0a0a0a, #121212);
+  border: 1px solid #1e1e1e;
+  border-radius: 14px;
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
 }
 
-.detail-image {
-  flex: 1;
-  max-width: 500px;
-  object-fit: cover;
+.detail-container:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
 }
 
+/* === Media Section === */
+.media-container-detail {
+  flex: 1.2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #000;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+  transition: transform 0.3s ease;
+}
+
+.media-container-detail:hover {
+  transform: scale(1.02);
+}
+
+.detail-media {
+  width: 100%;
+  max-width: 520px;
+  border-radius: 10px;
+  background-color: #000;
+  object-fit: contain;
+  display: block;
+}
+
+/* === Information Section === */
 .detail-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #f5f5f5;
 }
 
 .detail-info h1 {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: #fff;
+  letter-spacing: 0.5px;
 }
 
 .detail-info p {
-  margin-bottom: 0.75rem;
-  color: #ccc;
-  word-wrap: break-word;
+  margin-bottom: 0.8rem;
+  color: #aaa;
+  line-height: 1.6;
+  font-size: 1rem;
+  word-break: break-word;
 }
 
+/* === Price & Timer === */
 .price-tag {
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: bold;
-  color: var(--accent-color);
-  margin: 2rem 0;
+  color: #00ffc8;
+  margin: 1.8rem 0;
+  text-shadow: 0 0 6px rgba(0, 255, 200, 0.5);
+  letter-spacing: 0.5px;
 }
 
-.action-box .buy-button,
-.action-box .owned-button {
+.timer-text {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #21c25e;
+  margin: 1rem 0;
+  transition: color 0.4s ease;
+}
+
+.timer-text.owner-text {
+  color: #3399ff;
+}
+
+.timer-text.expired {
+  color: #ff3b3b;
+}
+
+/* === Action Buttons === */
+.action-box {
+  margin-top: 1.5rem;
+}
+
+.primary-action {
+  display: inline-block;
   width: 100%;
-  padding: 1rem;
-  font-size: 1.2rem;
+  padding: 1rem 1.4rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 0.4px;
 }
 
-.action-box .owned-button {
-  background-color: #333;
-  border-color: #444;
-  cursor: not-allowed;
+.buy-button {
+  background: linear-gradient(90deg, #007bff, #00a8ff);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(0, 150, 255, 0.4);
 }
 
-.action-box .download-button {
-  width: 100%;
-  padding: 1rem;
-  font-size: 1.2rem;
+.buy-button:hover {
+  background: linear-gradient(90deg, #00a8ff, #00d4ff);
+  box-shadow: 0 0 18px rgba(0, 200, 255, 0.6);
+  transform: translateY(-2px);
+}
+
+.download-button {
+  background: linear-gradient(90deg, #28a745, #34d058);
+  color: #fff;
   text-decoration: none;
+  box-shadow: 0 0 12px rgba(40, 167, 69, 0.4);
+}
+
+.download-button:hover {
+  background: linear-gradient(90deg, #34d058, #28a745);
+  box-shadow: 0 0 16px rgba(50, 205, 80, 0.6);
+  transform: translateY(-2px);
+}
+
+/* === Feedback Messages === */
+.feedback-message {
+  margin-top: 1.5rem;
+  font-size: 0.95rem;
+  color: #ddd;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1rem;
+  border-radius: 6px;
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === Error & Empty States === */
+.error-container {
   text-align: center;
-  display: block;
-  box-sizing: border-box;
-}
-
-/* ... (existing styles) ... */
-
-.detail-container {
-  display: flex;
-  max-width: 1000px;
-  margin: 3rem auto;
-  gap: 2rem;
+  color: #ff4d4d;
+  background-color: rgba(255, 0, 0, 0.05);
   padding: 2rem;
-  background-color: var(--secondary-color);
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); /* Added subtle shadow */
+  border-radius: 8px;
+  border: 1px solid rgba(255, 0, 0, 0.2);
 }
 
-/* New: Generic style for both image and video in detail page */
-.detail-media {
-  flex: 1;
-  max-width: 500px; /* Keep consistent width */
-  height: auto; /* Allow height to adjust naturally */
-  object-fit: contain; /* Ensure entire media is visible without cropping */
-  display: block;
-  background-color: #000; /* Black background for videos */
-  border-radius: 8px; /* Slightly rounded corners */
-}
+/* === Responsive (Mobile) === */
+@media (max-width: 900px) {
+  .detail-container {
+    flex-direction: column;
+    padding: 1.5rem;
+    gap: 1.5rem;
+  }
 
-/* Style specifically for video player if needed, but detail-media should cover most */
-.video-player {
-  /* You can add specific video player styles here if needed, 
-     e.g., specific controls styling, max height, etc. */
-}
+  .media-container-detail {
+    width: 100%;
+  }
 
-.detail-info {
-  flex: 1;
-  display: flex; /* Use flexbox for better layout of info */
-  flex-direction: column;
-  justify-content: space-between; /* Pushes action box to bottom */
-}
+  .detail-info {
+    text-align: left;
+  }
 
-/* ... (rest of the styles, including .action-box .download-button) ... */
+  .detail-info h1 {
+    font-size: 1.8rem;
+  }
+
+  .price-tag {
+    font-size: 1.5rem;
+  }
+
+  .primary-action {
+    font-size: 1rem;
+  }
+}
