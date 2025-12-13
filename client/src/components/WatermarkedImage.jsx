@@ -39,9 +39,9 @@ const WatermarkedImage = ({ src, watermarkText }) => {
       ctx.rotate(-0.35);
 
       ctx.font = `700 ${fontSize}px ${baseFont}`;
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 2;
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';       // 🔥 slightly stronger
+      ctx.strokeStyle = 'rgba(0,0,0,0.75)';           // 🔥 slightly stronger
+      ctx.lineWidth = 2.2;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
@@ -63,7 +63,19 @@ const WatermarkedImage = ({ src, watermarkText }) => {
   }, [src, watermarkText]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', display: 'inline-block' }}>
+    <div
+      style={{ position: 'relative', width: '100%', display: 'inline-block' }}
+
+      /* 🔥 NEW — Force watermarked download on right-click "Save Image As" */
+      onContextMenu={(e) => {
+        e.preventDefault();
+        const canvas = canvasRef.current;
+        const link = document.createElement("a");
+        link.download = "protected-image.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      }}
+    >
       <img
         ref={imgRef}
         src={src}

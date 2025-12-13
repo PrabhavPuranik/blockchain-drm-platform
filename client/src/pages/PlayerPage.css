@@ -33,7 +33,7 @@
   bottom: 15px;
   right: 20px;
   text-align: right;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 1);
   font-size: 14px;
   font-weight: 400;
   letter-spacing: 0.5px;
@@ -90,4 +90,30 @@
   .watermark {
     font-size: 12px;
   }
+}
+
+/* EXISTING STYLES ABOVE — unchanged */
+
+.media-wrapper video.blackout,
+.media-wrapper img.blackout {
+  opacity: 0 !important;
+  filter: brightness(0) !important;
+}
+
+/* Black overlay when screenshot detected */
+.screenshot-blackout {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: #ff4444;
+  font-size: 1.2rem;
+  font-weight: 600;
+  padding: 1rem;
+  pointer-events: none;
+  z-index: 10;
 }
